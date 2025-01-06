@@ -12,14 +12,20 @@ interface Order {
   items: CartItem[];
   total: number;
   date: Date;
-  status: 'waitlist' | 'confirmed' | 'cancelled';
+  status: 'waitlist' | 'confirmed' | 'processing' | 'shipped' | 'cancelled';
   confirmationDate?: Date;
+  processingStartDate?: Date;
+  shippingDate?: Date;
+  packingStatus: 'pending' | 'completed';
+  packedDate?: Date;
 }
 
 interface CartContextProps {
   cart: CartItem[];
   orders: Order[];
   confirmedOrders: Order[];
+  processingOrders: Order[];
+  packedOrders: Order[];
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -27,6 +33,9 @@ interface CartContextProps {
   createOrder: () => void;
   cancelOrder: (orderId: string) => void;
   confirmOrder: (orderId: string) => void;
+  startProcessing: (orderId: string) => void;
+  startShipping: (orderId: string) => void;
+  updatePackingStatus: (orderId: string, status: 'pending' | 'completed') => void;
 }
 
 const CartContext = createContext<CartContextProps | undefined>(undefined);
@@ -35,6 +44,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [confirmedOrders, setConfirmedOrders] = useState<Order[]>([]);
+  const [processingOrders, setProcessingOrders] = useState<Order[]>([]);
+  const [packedOrders, setPackedOrders] = useState<Order[]>([]);
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
@@ -79,6 +90,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       total: cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
       date: new Date(),
       status: 'waitlist',
+      packingStatus: 'pending'
     };
     setOrders([newOrder, ...orders]);
     setCart([]);
@@ -94,16 +106,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const orderToConfirm = orders.find(order => order.id === orderId);
 
     if (orderToConfirm) {
-      // Remove from waitlist orders
       setOrders(prevOrders =>
         prevOrders.filter(order => order.id !== orderId)
       );
 
-      // Add to confirmed orders with updated status
-      const confirmedOrder = {
+      const confirmedOrder: Order = {
         ...orderToConfirm,
         status: 'confirmed' as const,
-        confirmationDate: new Date()
+        confirmationDate: new Date(),
+        packingStatus: 'pending'
       };
 
       setConfirmedOrders(prevConfirmedOrders => [
@@ -114,10 +125,92 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const startProcessing = (orderId: string) => {
+    const orderToProcess = confirmedOrders.find(order => order.id === orderId);
+
+    if (orderToProcess) {
+      setConfirmedOrders(prevOrders =>
+        prevOrders.filter(order => order.id !== orderId)
+      );
+
+      const processingOrder = {
+        ...orderToProcess,
+        status: 'processing' as const,
+        processingStartDate: new Date()
+      };
+
+      setProcessingOrders(prevOrders => [
+        processingOrder,
+        ...prevOrders
+      ]);
+      toast.success(`Order ${orderId.slice(-6)} started processing!`);
+    }
+  };
+
+  const startShipping = (orderId: string) => {
+    const orderToShip = processingOrders.find(order => order.id === orderId);
+
+    if (orderToShip) {
+      setProcessingOrders(prevOrders =>
+        prevOrders.filter(order => order.id !== orderId)
+      );
+
+      const shippedOrder = {
+        ...orderToShip,
+        status: 'shipped' as const,
+        shippingDate: new Date()
+      };
+
+      setOrders(prevOrders => [
+        shippedOrder,
+        ...prevOrders
+      ]);
+      toast.success(`Order ${orderId.slice(-6)} is now shipping!`);
+    }
+  };
+
+  const updatePackingStatus = (orderId: string, status: 'pending' | 'completed') => {
+    if (status === 'completed') {
+      const orderToMove = confirmedOrders.find(order => order.id === orderId);
+
+      if (orderToMove) {
+        // Remove from confirmed orders
+        setConfirmedOrders(prevOrders =>
+          prevOrders.filter(order => order.id !== orderId)
+        );
+
+        // Add to packed orders with packedDate
+        const packedOrder: Order = {
+          ...orderToMove,
+          packingStatus: 'completed',
+          packedDate: new Date()
+        };
+
+        setPackedOrders(prevPackedOrders => [
+          packedOrder,
+          ...prevPackedOrders
+        ]);
+
+        toast.success(`Order ${orderId.slice(-6)} packing completed and moved to packed orders`);
+      }
+    } else {
+      setConfirmedOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId
+            ? { ...order, packingStatus: status }
+            : order
+        )
+      );
+      toast.info(`Order ${orderId.slice(-6)} packing status set to pending`);
+    }
+  };
+
   const value: CartContextProps = {
     cart,
     orders,
     confirmedOrders,
+    processingOrders,
+    packedOrders,
     addToCart,
     removeFromCart,
     updateQuantity,
@@ -125,6 +218,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     createOrder,
     cancelOrder,
     confirmOrder,
+    startProcessing,
+    startShipping,
+    updatePackingStatus,
   };
 
   return (

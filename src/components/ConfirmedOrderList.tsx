@@ -1,9 +1,15 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
-import { CheckCircleIcon, PackageIcon } from "lucide-react";
+import { CheckCircleIcon, PackageIcon, PackageOpenIcon } from "lucide-react";
+import { Badge } from './ui/badge';
 
 const ConfirmedOrderList = () => {
-  const { confirmedOrders } = useCart();
+  const { confirmedOrders, packedOrders } = useCart();
+
+  // Function to check if an order is packed
+  const isOrderPacked = (orderId: string) => {
+    return packedOrders.some(packedOrder => packedOrder.id === orderId);
+  };
 
   if (confirmedOrders.length === 0) {
     return (
@@ -36,11 +42,32 @@ const ConfirmedOrderList = () => {
             <span className="font-medium text-primary">
               Order ID: {order.id.slice(-6)}
             </span>
-            <span className="text-sm text-muted-foreground">
-              Confirmed on: {order.confirmationDate?.toLocaleString()}
-            </span>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">
+                Confirmed on: {order.confirmationDate?.toLocaleString()}
+              </span>
+              {/* Packing Status Badge */}
+              <Badge 
+                variant={
+                  isOrderPacked(order.id) 
+                    ? 'default' 
+                    : 'secondary'
+                }
+                className="flex items-center gap-2"
+              >
+                {isOrderPacked(order.id) ? (
+                  <PackageOpenIcon className="w-4 h-4" />
+                ) : (
+                  <PackageIcon className="w-4 h-4" />
+                )}
+                {isOrderPacked(order.id) 
+                  ? 'Packing Completed' 
+                  : 'Packing Pending'}
+              </Badge>
+            </div>
           </div>
 
+          {/* Rest of the order details remain the same */}
           <div className="divide-y">
             {order.items.map((item) => (
               <div

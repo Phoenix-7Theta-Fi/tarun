@@ -88,3 +88,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+.bg-agri-green-50 {
+  background-color: #e6f4ea; /* Light green background */
+}
+
+.border-agri-green {
+  border-color: #4caf50; /* Green border */
+}
+
+.text-primary {
+  color: #2c3e50; /* Primary text color */
+}
+
+.text-muted-foreground {
+  color: #7f8c8d; /* Muted text color */
+}
